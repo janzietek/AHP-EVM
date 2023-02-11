@@ -13,10 +13,9 @@ namespace CoffeeMachinesComparator.AHP;
 public class AHPHierarchy
 {
     public List<PairwiseComparisonMatrix> AlternativesCriterionMatrixes = new();
-    public PairwiseComparisonMatrix CriterionImportanceMatrix;
+    public List<PairwiseComparisonMatrix> CriterionImportanceMatrices = new();
     private List<string> criterions = new();
     private List<string> alternatives = new();
-    public Dictionary<string, double> AlternativesRanking = new();
 
     public List<string> Criterions { get => criterions; set => criterions = value; }
     public List<string> Alternatives { get => alternatives; set => alternatives = value; }
@@ -24,7 +23,6 @@ public class AHPHierarchy
     public AHPHierarchy(List<string> alternatives)
     {
         GetCriterionsFromJson();
-        CriterionImportanceMatrix = new PairwiseComparisonMatrix(criterions, "CriterionsImportance");
 
         this.alternatives = alternatives;
         foreach (string criterion in criterions)
@@ -52,31 +50,34 @@ public class AHPHierarchy
         }
     }
 
-    public void FilCriterionMatrix(List<AlternativesPairwiseComparisonModel> criterionComparison)
+    public void AddExpert(List<AlternativesPairwiseComparisonModel> criterionComparison)
     {
+        PairwiseComparisonMatrix expert = new(criterions, "CriterionsImportance");
         foreach (AlternativesPairwiseComparisonModel criterion in criterionComparison)
         {
             int first = criterions.IndexOf(criterion.FirstAlternative);
             int second = criterions.IndexOf(criterion.SecondAlternative);
             if (criterion.IsFirstBetter)
             {
-                CriterionImportanceMatrix.SetValueAt(first, second, (double)criterion.HowMuchBetter);
+                expert.SetValueAt(first, second, (double)criterion.HowMuchBetter);
             }
             else
             {
-                CriterionImportanceMatrix.SetValueAt(second, first, (double)criterion.HowMuchBetter);
+                expert.SetValueAt(second, first, (double)criterion.HowMuchBetter);
             }
         }
+        this.CriterionImportanceMatrices.Add(expert);
     }
 
-    public void FillRanking()
+    public Dictionary<string, double> CalculateRankingWithEVGMethod()
     {
+        Dictionary<string, double> AlternativesRanking = new();
         AlternativesRanking.Clear();
         List<Vector<double>> alternativesWagesVectors = new();
 
         foreach(string criterion in criterions)
         {
-            PairwiseComparisonMatrix matrix = AlternativesCriterionMatrixes.FirstOrDefault(c => c.CriterionName.Equals(criterion));
+            PairwiseComparisonMatrix matrix = AlternativesCriterionMatrixes.FirstOrDefault(c => c.CriterionName.Equals(criterion, StringComparison.Ordinal));
             alternativesWagesVectors.Add(matrix.CalculateEigenVector());
         }
 
@@ -84,7 +85,7 @@ public class AHPHierarchy
 
         Matrix<double> alternativesWagesMatrix = Matrix<double>.Build.DenseOfColumnVectors(alternativesWagesVectors);
 
-        Vector<double> criterionsWagesVector = CriterionImportanceMatrix.CalculateEigenVector();
+        Vector<double> criterionsWagesVector = CalculateCriterionsWagesVector().CalculateEigenVector();
 
         Vector<double> ranking = alternativesWagesMatrix * criterionsWagesVector;
 
@@ -92,12 +93,58 @@ public class AHPHierarchy
         {
             AlternativesRanking.Add(alternative, ranking[alternatives.IndexOf(alternative)]);
         }
+
+        return AlternativesRanking;
     }
 
-    public void AddCriterion(string name)
+    public Dictionary<string, double> CalculateRankingWithGVMMethod()
     {
-        criterions.Add(name);
+        Dictionary<string, double> AlternativesRanking = new();
+        AlternativesRanking.Clear();
+        List<Vector<double>> alternativesWagesVectors = new();
+
+        foreach (string criterion in criterions)
+        {
+            PairwiseComparisonMatrix matrix = AlternativesCriterionMatrixes.FirstOrDefault(c => c.CriterionName.Equals(criterion, StringComparison.Ordinal));
+            alternativesWagesVectors.Add(matrix.CalculateGeometricVector());
+        }
+
+        alternativesWagesVectors.Reverse();
+
+        Matrix<double> alternativesWagesMatrix = Matrix<double>.Build.DenseOfColumnVectors(alternativesWagesVectors);
+
+        Vector<double> criterionsWagesVector = CalculateCriterionsWagesVector().CalculateGeometricVector();
+
+        Vector<double> ranking = alternativesWagesMatrix * criterionsWagesVector;
+
+        foreach (string alternative in alternatives)
+        {
+            AlternativesRanking.Add(alternative, ranking[alternatives.IndexOf(alternative)]);
+        }
+
+        return AlternativesRanking;
     }
+
+    private PairwiseComparisonMatrix CalculateCriterionsWagesVector()
+    {
+        PairwiseComparisonMatrix CriterionsMatrix = new(criterions, "CriterionsImportance");
+
+        for (int i = 0; i < Criterions.Count; i++)
+        {
+            for (int j = 0; j < Criterions.Count; j++)
+            {
+                double value = 0.0;
+                foreach (PairwiseComparisonMatrix matrix in CriterionImportanceMatrices)
+                {
+                    value += matrix.GetValueAt(i, j);
+                }
+                CriterionsMatrix.SetValueAt(i, j, value / CriterionImportanceMatrices.Count);
+            }
+        }
+
+        return CriterionsMatrix;
+    }
+
 
     private void GetCriterionsFromJson()
     {

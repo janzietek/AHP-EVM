@@ -32,42 +32,64 @@ public partial class CriteriaWindowForm : Form
 
     private void CriteriaWindowForm_Load(object sender, EventArgs e)
     {
-        Button1.Text = "Criterions";
+        Experts.Text = "Number of experts: " + Hierarchy.CriterionImportanceMatrices.Count.ToString();
         Button2.Text = Hierarchy.Criterions[0];
         Button3.Text = Hierarchy.Criterions[1];
         Button4.Text = Hierarchy.Criterions[2];
     }
 
-    private void Calculate_Click(object sender, EventArgs e)
+    private void CalculateEVG_CalculateWithEVG_Click(object sender, EventArgs e)
+    {
+        if (IsValid())
+        {
+            Experts.Text = Hierarchy.CriterionImportanceMatrices.Count.ToString();
+            Consistency2.Text = Math.Round(Hierarchy.AlternativesCriterionMatrixes[0].GetMatrixConsistencyIndex(), 2).ToString();
+            Consistency3.Text = Math.Round(Hierarchy.AlternativesCriterionMatrixes[1].GetMatrixConsistencyIndex(), 2).ToString();
+            Consistency4.Text = Math.Round(Hierarchy.AlternativesCriterionMatrixes[2].GetMatrixConsistencyIndex(), 2).ToString();
+
+            var ranking = Hierarchy.CalculateRankingWithEVGMethod();
+            Form form = new ShowRankingForm(ranking);
+            form.Show();
+        }
+    }
+
+    private void CalculateGVM_CalculateWithGVM_Click(object sender, EventArgs e)
+    {
+        if (IsValid())
+        {
+            Experts.Text = Hierarchy.CriterionImportanceMatrices.Count.ToString();
+            Consistency2.Text = Math.Round(Hierarchy.AlternativesCriterionMatrixes[0].GetMatrixConsistencyIndex(), 2).ToString();
+            Consistency3.Text = Math.Round(Hierarchy.AlternativesCriterionMatrixes[1].GetMatrixConsistencyIndex(), 2).ToString();
+            Consistency4.Text = Math.Round(Hierarchy.AlternativesCriterionMatrixes[2].GetMatrixConsistencyIndex(), 2).ToString();
+
+            var ranking = Hierarchy.CalculateRankingWithGVMMethod();
+            Form form = new ShowRankingForm(ranking);
+            form.Show();
+        }
+    }
+
+    private bool IsValid()
     {
         if (!CriterionsCompared)
         {
             MessageBox.Show("You forgot to compare Criterions!");
-            return;
+            return false;
         }
         foreach (bool isFilled in MatrixesFilled.Values)
         {
             if (!isFilled)
             {
                 MessageBox.Show("You forgot to compare alternatives according to all Criterion!");
-                return;
+                return false;
             }
         }
-
-        Consistency1.Text = Math.Round(Hierarchy.CriterionImportanceMatrix.GetMatrixConsistencyIndex(), 2).ToString();
-        Consistency2.Text = Math.Round(Hierarchy.AlternativesCriterionMatrixes[0].GetMatrixConsistencyIndex(), 2).ToString();
-        Consistency3.Text = Math.Round(Hierarchy.AlternativesCriterionMatrixes[1].GetMatrixConsistencyIndex(), 2).ToString();
-        Consistency4.Text = Math.Round(Hierarchy.AlternativesCriterionMatrixes[2].GetMatrixConsistencyIndex(), 2).ToString();
-
-        Hierarchy.FillRanking();
-        Form form = new ShowRankingForm(Hierarchy.AlternativesRanking);
-        form.Show();
+        return true;
     }
 
     private void Button1_Click(object sender, EventArgs e)
     {
         FillMatrixByComparison f = new(Hierarchy.Criterions, Button1.Text);
-        f.MatrixUpdate += new FillMatrixByComparison.MatrixUpdateHandler(FillCriterionsMatrix);
+        f.MatrixUpdate += new FillMatrixByComparison.MatrixUpdateHandler(AddExpert);
         f.Show();
     }
 
@@ -98,9 +120,10 @@ public partial class CriteriaWindowForm : Form
         MatrixesFilled[e.Criterion] = true;
     }
 
-    private void FillCriterionsMatrix(object sender, UpdateMatrixEventArgs e)
+    private void AddExpert(object sender, UpdateMatrixEventArgs e)
     {
-        Hierarchy.FilCriterionMatrix(e.comparisons);
+        Hierarchy.AddExpert(e.comparisons);
         CriterionsCompared = true;
+        Experts.Text = "Number of experts: " + Hierarchy.CriterionImportanceMatrices.Count.ToString();
     }
 }

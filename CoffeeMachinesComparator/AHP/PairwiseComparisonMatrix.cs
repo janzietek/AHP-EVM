@@ -43,6 +43,25 @@ public class PairwiseComparisonMatrix
         return column;
     }
 
+    public Vector<double> CalculateGeometricVector()
+    {
+        Vector<double> gvm = Vector<double>.Build.Dense(matrixSize);
+
+        for (int i = 0; i < matrixSize; i++)
+        {
+            double val = 1.0;
+            for (int j = 0; j < matrixSize; j++)
+            {
+                val *= matrix.At(i, j);
+            }
+            gvm[i] = Math.Pow(val, 1.0 / matrixSize);
+        }
+
+        var sum = gvm.Sum();
+
+        return gvm / sum;
+    }
+
     public double GetMatrixConsistencyIndex()
     {
         int n = Alternatives.Count;
@@ -60,7 +79,11 @@ public class PairwiseComparisonMatrix
         matrix[i, j] = value;
         matrix[j, i] = 1 / value;
     }
-    
+
+    public double GetValueAt(int i, int j)
+    {
+        return matrix[i, j];
+    }
 
     #region Getters and Setters
     public Matrix<double> Matrix { get => matrix; set => matrix = value; }
